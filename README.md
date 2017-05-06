@@ -1,4 +1,5 @@
-＃iOS-常见题目总结
+/******************************这些题目是平时上网看到的，答案是自己从网上查找的，作为笔记学习而已****************************************/
+
 1，下面的代码输出什么？
 
    @implementation Son : Father
@@ -557,3 +558,275 @@ NSOperation 和 GCD：其中 GCD 是基于 C 的底层的 API ，而 NSOperation
 		
 		queue.addOperation(operation1)
 
+/************************************************************新更( 5.6 )********************************************************************************************/
+
+1,说一下frame与bounds的区别？
+ 	
+ 	frame: 该view在父view坐标系统中的位置和大小。（参照点是，父亲的坐标系统）
+ 	bounds：该view在本地坐标系统中的位置和大小。（参照点是，本地坐标系统，就相当于ViewB自己的坐标系统，以0,0点为起点）
+ 	center：该view的中心点在父view坐标系统中的位置和大小。（参照电是，父亲的坐标系统）
+
+2,你是怎么理解深拷贝和浅拷贝的？
+	
+	容器类例如：NSArray，NSDictionary，NSSet 以及其对应的可变类
+	
+	对于所有系统容器类的copy或者mutableCopy方法，都是浅拷贝 
+
+	注：在非集合类对象中：对 不可变 对象进行 copy 操作，是指针复制，mutableCopy 操作时内容复制；对 可变 对象进行 copy 和 mutableCopy 都是内容复制
+
+		例： 
+			[immutableObject copy] // 浅复制
+			
+			[immutableObject mutableCopy] //深复制
+			
+			[mutableObject copy] //深复制
+			
+			[mutableObject mutableCopy] //深复制
+							
+			但是：集合对象的内容复制仅限于对象本身，对象元素仍然是指针复制（浅拷贝）。
+
+3，SDWebImgae 用什么方式判断gif/png图片的？
+	
+	+ (NSString *)sd_contentTypeForImageData:(NSData *)data;   SDWebImgae 为NSData写个分类，调用上述方法，可判断图片类型。
+
+	根据二进制的数据获取图片的类型 ，每个文件头的第一个字节就能判断出是什么类型
+
+	在方法后面写 __deprecated_msg （） 可以告诉开发者该方法不建议使用，括号里面是提示信息
+
+4，Autorelease对象什么时候释放
+	
+	在没有手加Autorelease Pool的情况下，Autorelease对象是在当前的runloop迭代结束时释放的，而它能够释放的原因是系统在每个runloop迭代中都加入了自动释放池Push和Pop
+
+	Autorelease原理：
+
+		AutoreleasePoolPage：
+
+			ARC下，我们使用@autoreleasepool{}来使用一个AutoreleasePool，随后编译器将其改写成下面的样子：
+
+			void *context = objc_autoreleasePoolPush();
+			// {}中的代码
+			objc_autoreleasePoolPop(context);
+
+			AutoreleasePoolPage 是个c++类，上述两个函数只是对这个类的一个简单封装;AutoreleasePoolPage 结构如下：
+
+				magic_t const magic;
+				id *next;
+				pthread_t const thread;
+				AutoreleasePoolPage *const parent;
+				AutoreleasePoolPage *child;
+				uint32_t const depth;
+				uint32_t hiwat;
+
+				a, AutoreleasePool并没有单独的结构，而是由若干个AutoreleasePoolPage以双向链表的形式组合而成（分别对应结构中的parent指针和child指针）
+				b, AutoreleasePool是按线程一一对应的（结构中的thread指针指向当前线程）
+				c, AutoreleasePoolPage每个对象会开辟4096字节内存（也就是虚拟内存一页的大小），除了上面的实例变量所占空间，剩下的空间全部用来储存autorelease对象的地址
+				d, 上面的id *next指针作为游标指向栈顶最新add进来的autorelease对象的下一个位置
+				e, 一个AutoreleasePoolPage的空间被占满时，会新建一个AutoreleasePoolPage对象，连接链表，后来的autorelease对象在新的page加入
+
+			释放时刻：每当进行一次objc_autoreleasePoolPush调用时，runtime向当前的AutoreleasePoolPage中add进一个哨兵对象，值为0（也就是个nil）
+
+				objc_autoreleasePoolPush的返回值正是这个哨兵对象的地址，被objc_autoreleasePoolPop(哨兵对象)作为入参，于是：
+				根据传入的哨兵对象地址找到哨兵对象所处的page
+				在当前page中，将晚于哨兵对象插入的所有autorelease对象都发送一次- release消息，并向回移动next指针到正确位置
+				补充2：从最新加入的对象一直向前清理，可以向前跨越若干个page，直到哨兵所在的page
+
+5，AFN为什么添加一条常驻线程？
+
+6，简单叙述下KVC与KVO的实现原理？
+	
+	KVC实现原理：KVC再某种程度上提供了访问器的替代方案。不过访问器方法是一个很好的东西，以至于只要是有可能，
+                
+                	KVC也尽量在访问器方法的帮助下工作。为了设置或者返回对象属性，KVC按顺序使用如下技术：
+                
+                	①检查是否存在-<key>、-is<key>（只针对布尔值有效）或者-get<key>的访问器方法，如果有可能，就是用这些方法返回值；
+                
+                    		检查是否存在名为-set<key>:的方法，并使用它做设置值。对于-get<key>和-set<key>:方法，将大写Key字符串的第一个字母，并与Cocoa的方法命名保持一致；
+                
+               	 ②如果上述方法不可用，则检查名为-_<key>、-_is<key>（只针对布尔值有效）、-_get<key>和-_set<key>:方法；
+                
+               	 ③如果没有找到访问器方法，可以尝试直接访问实例变量。实例变量可以是名为：<key>或_<key>;
+                
+                	④如果仍为找到，则调用valueForUndefinedKey:和setValue:forUndefinedKey:方法。这些方法的默认实现都是抛出异常，我们可以根据需要重写它们。
+
+             KVO实现原理：当某个类的对象第一次被观察时，系统就会在运行期动态地创建该类的一个派生类，在这个派生类中重写基类中任何被观察属性的 setter 方法。派生类在被重写的 setter 方法实现真正的通知机制
+
+        		如果之前的类名为：Person，那么被runtime更改以后的类名会变成：NSKVONotifying_Person。新的NSKVONotifying_Person类会重写以下方法：增加了监听的属性对应的set方法，class，dealloc，_isKVOA
+
+           		①class
+            
+                		重写class方法是为了我们调用它的时候返回跟重写继承类之前同样的内容
+            
+            	②重写set方法新类会重写对应的set方法，是为了在set方法中增加另外两个方法的调用：- (void)willChangeValueForKey:(NSString *)key 或者 - (void)didChangeValueForKey:(NSString *)key,  
+
+            		其中，didChangeValueForKey:方法负责调用：- (void)observeValueForKeyPath: ofObject: change: context:这就是KVO实现的原理了！
+
+7，什么是进程？什么是线程？
+	
+	进程：进程是计算机操作系统分配资源的单位，是指系统中正在运行的一个应用程序，每个进程之间是独立的，每个进程均运行在其专受保护的内存空间内。
+
+	线程：线程是进程的基本执行单元，一个进程的所有任务都在线程中执行。1个进程要执行任务，必须得有线程（每个进程至少要有一个线程）
+
+8,GCD与NSOperation的区别，谁是最早推出的？
+	
+	GCD先推出的；
+
+	GCD以 block 为单位，代码简洁。同时 GCD 中的队列、组、信号量、source、barriers 都是组成并行编程的基本原语。对于一次性的计算，或是仅仅为了加快现有方法的运行速度，选择轻量化的 GCD 就更加方便。
+
+	NSOperation 可以用来规划一组任务之间的依赖关系，设置它们的优先级，任务能被取消。队列可以暂停、恢复。NSOperation 还可以被子类化。这些都是 GCD 所不具备的。
+
+9,atomic是绝对安全的吗？
+	
+	atomic的操作是原子性的，但是并不意味着它是线程安全的，它会增加正确的几率，能够更好的避免线程的错误，但是它仍然是线程不安全的
+	
+	当使用nonatomic的时候，属性的setter，getter操作是非原子性的，所以当多个线程同时对某一属性读和写操作时，属性的最终结果是不能预测的。
+	
+	当使用atomic时，虽然对属性的读和写是原子性的，但是仍然可能出现线程错误：当线程A进行写操作，这时其他线程的读或者写操作会因为该操作而等待。
+
+	当A线程的写操作结束后，B线程进行写操作，然后当A线程需要读操作时，却获得了在B线程中的值，这就破坏了线程安全，如果有线程C在A线程读操作前release了该属性，
+
+		那么还会导致程序崩溃。所以仅仅使用atomic并不会使得线程安全，我们还要为线程添加lock来确保线程的安全。
+	
+	也就是要注意：atomic所说的线程安全只是保证了getter和setter存取方法的线程安全，并不能保证整个对象是线程安全的。如下列所示：
+	
+	比如：@property(atomic,strong)NSMutableArray *arr;  
+	
+	如果一个线程循环的读数据，一个线程循环写数据，那么肯定会产生内存问题，因为这和setter、getter没有关系。如使用[self.arr objectAtIndex:index]就不是线程安全的。好的解决方案就是加锁。
+	     
+	     据说，atomic要比nonatomic慢大约20倍。一般如果条件允许，我们可以让服务器来进行加锁操作。
+
+10, 系统是怎样保证父类的类方法，在子类被调用？
+	
+	当子类调用类方法的时候，系统会在子类的元类中去搜查这个方法，元类保存了类方法的列表。
+
+	当一个类方法被调用时，元类会首先查找它本身是否有该类方法的实现，如果没有，则该元类会向它的父类查找该方法，直到一直找到继承链的头。
+
+	由于类方法的定义是保存在元类 （metaclass） 中，而方法调用的规则是，如果该类没有一个方法的实现，则向它的父类继续查找。
+
+		所以，为了保证父类的类方法可以在子类中可以被调用，所以子类的元类会继承父类的元类，换而言之，类对象和元类对象有着同样的继承关系。
+
+11，一个对象的关联对象又是存在什么地方呢？如何存储？对象销毁时候如何处理关联对象呢？（附加）
+	
+	所有的关联对象都由AssociationsManager管理AssociationsManager里面是由一个静态AssociationsHashMap来存储所有的关联对象的。
+
+	这相当于把所有对象的关联对象都存在一个全局映射里面。而绘制的的关键是这个对象的指针地址（任意两个不同对象的指针地址一定是不同的），
+
+	而这个地址的值又是另外一个AssociationsHashMap，里面保存了关联对象的KV对。而在对象的销毁逻辑里面，会判断这个对象有没有关联对象，
+
+	如果有，会调用_object_remove_assocations做关联对象的清理工作。
+
+12, 分类的实现原理，分类为什么会覆盖原类的方法？
+
+	类别的实现：
+
+		所有的OC类和对象，在运行时层都是用结构表示的，类别也不例外，在运行时层，类别用结构体category_t（在objc-运行时new.h中可以找到此定义），它包含了一下内容：
+
+			1），类的名字（名）
+			2），类（cls）
+			3），类中所有给类添加的实例方法的列表（instanceMethods）
+			4），类中所有添加的类方法的列表（classMethods ）
+			5），类实现的所有协议的列表（协议）
+			6），类中添加的所有属性（instanceProperties）(不是实例变量，是属性)
+
+		typedef struct category_t {
+		    const char *name;
+		    classref_t cls;
+		    struct method_list_t *instanceMethods;
+		    struct method_list_t *classMethods;
+		    struct protocol_list_t *protocols;
+		    struct property_list_t *instanceProperties;
+		} category_t;
+
+	说明：MyClass 是原类， MyAddition 是MyClass的一个类别
+
+		编译器编译类别时首先会生成一个实例方法列表和属性方法列表，两者的命名都遵循了公共前缀+类名+类别名字的命名方式
+
+		其次，编译器生成了类别本身OBJC $ _CATEGORY MyClass $ _MyAddition，并用前面生成的列表来初始化类本身
+
+		最后，编译器在DATA段下的 objc_catlist部分里保存了一个大小为1的category_t的数组L_OBJC_LABEL CATEGORY $（当然，如果有多 类别，会生成对应长度的数组^ _ ^），用于运行期类的加载。
+
+	类别被附加到类上面是在map_images的时候发生的，在新ABI的标准下，_objc_init里面的调用的map_images最终会调用objc-runtime-new.mm里面的_read_images方法：
+
+		该方法有两个作用：一是把类别的实例方法、协议以及属性添加到类上；二是把类别的类方法和协议添加到类的元类上
+
+		类别各种列表是怎么最终添加到类上的？(以实例方法为例) _read_images方法中，addUnattachedCategoryForClass只是把类和类别做一个关联映射，remethodizeClass这个方法才是把类别的实例方法
+
+			添加到类本身上的功臣，remethodizeClass方法中会调用这个方法attachCategoryMethods，attachCategoryMethods方法的目的就是是把所有类别的实例方法列表拼成了一个大的实例方法列表，
+
+			然后转交给了attachMethodLists方法；attachMethodLists方法会检测类别中的方法是否有覆盖原类中的方法，如果有，就将类别中的方法插入到原类方法列表的中且位置是在原方法的前面；所以
+
+			该方法的注意点：
+
+				1），类的方法没有“完全替换掉”原来类已经有的方法，也就是说如果类别和原来类都有方法A，那类附加完成之后，类的方法列表里会有两个方法A 
+				
+				2），类的方法被放到了新方法列表的前面，而原来类的方法被放到了新方法列表的后面，这也就是我们平常所说的类方法会“覆盖”掉原来类的同名方法，
+
+				这是因为运行时在查找方法的时候是顺着方法列表的顺序查找的，它只要一找到对应名字的方法，就会罢休^ _ ^，殊不知后面可能还有一样名字的方法
+
+13，一个分类覆盖了原类中的方法，怎么可以在使用该方法时，使得调用的是原类中的方法，而不是分类中？
+
+	类别其实并不是完全替换掉原来类的同名方法，只是类别在方法列表的前面而已，所以我们只要顺着方法列表找到最后一个对应名字的方法，就可以调用原来类的方法：
+
+		Class currentClass = [MyClass class];
+		
+		MyClass *my = [[MyClass alloc] init];
+
+		if (currentClass) {
+		
+		    unsigned int methodCount;
+		
+		    Method *methodList = class_copyMethodList(currentClass, &methodCount);
+		
+		    IMP lastImp = NULL;
+		
+		    SEL lastSel = NULL;
+		
+		    for (NSInteger i = 0; i < methodCount; i++) {
+		
+		        Method method = methodList[i];
+		
+		        NSString *methodName = [NSString stringWithCString:sel_getName(method_getName(method)) 
+		
+		                                        encoding:NSUTF8StringEncoding];
+		
+		        if ([@"printName" isEqualToString:methodName]) {
+		
+		            lastImp = method_getImplementation(method);
+		
+		            lastSel = method_getName(method);
+		        }
+		    }
+		
+		    typedef void (*fn)(id,SEL);
+
+		    if (lastImp != NULL) {
+		
+		        fn f = (fn)lastImp;
+		
+		        f(my,lastSel);
+		    }
+		
+		    free(methodList);
+		}
+
+14，对 id 的理解，以及他的底层原理
+	
+	id 类型的变量可以存放任何数据类型的对象；在内部处理上，这种类型被定义为指向对象的指针，实际上是一个指向这种对象的实例变量的指针
+
+		id在objc.h中的定义：
+
+			typedef struct objc_object {  
+		
+			Class isa;  
+		
+			} *id; 
+		id 是指向struct objc_object 的一个指针。也就是说，id 是一个指向任何一个继承了Object（或者NSObject）类的对象。
+
+		需要注意的是id 是一个指针，所以在使用id的时候不需要加星号
+
+15，什么是链表，链表逆序怎么实现
+
+	链表是一种物理存储单元上非连续、非顺序的存储结构，数据元素的逻辑顺序是通过链表中的指针链接次序实现的。链表由一系列结点（链表中每一个元素称为结点）组成
+	
+	结点可以在运行时动态生成。每个结点包括两个部分：一个是存储数据元素的数据域，另一个是存储下一个结点地址的指针域
+
+	
