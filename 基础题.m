@@ -618,16 +618,40 @@ NSOperation 和 GCD：其中 GCD 是基于 C 的底层的 API ，而 NSOperation
 				uint32_t hiwat;
 
 				a, AutoreleasePool并没有单独的结构，而是由若干个AutoreleasePoolPage以双向链表的形式组合而成（分别对应结构中的parent指针和child指针）
+				
 				b, AutoreleasePool是按线程一一对应的（结构中的thread指针指向当前线程）
+				
 				c, AutoreleasePoolPage每个对象会开辟4096字节内存（也就是虚拟内存一页的大小），除了上面的实例变量所占空间，剩下的空间全部用来储存autorelease对象的地址
+				
 				d, 上面的id *next指针作为游标指向栈顶最新add进来的autorelease对象的下一个位置
+				
 				e, 一个AutoreleasePoolPage的空间被占满时，会新建一个AutoreleasePoolPage对象，连接链表，后来的autorelease对象在新的page加入
+
+			参数解释：
+				
+				magic 用来校验 AutoreleasePoolPage 的结构是否完整
+				
+				next 指向最新添加的 autoreleased 对象的下一个位置，初始化时指向 begin()
+				
+				thread 指向当前线程
+				
+				parent 指向父结点，第一个结点的 parent 值为 nil
+				
+				child 指向子结点，最后一个结点的 child 值为 nil
+				
+				depth 代表深度，从 0 开始，往后递增 1
+				
+				hiwat 代表 high water mark
+
 
 			释放时刻：每当进行一次objc_autoreleasePoolPush调用时，runtime向当前的AutoreleasePoolPage中add进一个哨兵对象，值为0（也就是个nil）
 
 				objc_autoreleasePoolPush的返回值正是这个哨兵对象的地址，被objc_autoreleasePoolPop(哨兵对象)作为入参，于是：
+				
 				根据传入的哨兵对象地址找到哨兵对象所处的page
+				
 				在当前page中，将晚于哨兵对象插入的所有autorelease对象都发送一次- release消息，并向回移动next指针到正确位置
+				
 				补充2：从最新加入的对象一直向前清理，可以向前跨越若干个page，直到哨兵所在的page
 
 5，AFN为什么添加一条常驻线程？
