@@ -829,4 +829,18 @@ NSOperation 和 GCD：其中 GCD 是基于 C 的底层的 API ，而 NSOperation
 	
 	结点可以在运行时动态生成。每个结点包括两个部分：一个是存储数据元素的数据域，另一个是存储下一个结点地址的指针域
 
+16，NSURLSession 相比 NSURLConnection 有哪些优点？
+	
+	a, 后台上传和下载：只需在创建 NSURLSession 的时候配置一个选项，就能得到后台网络的所有好处。这样可以延长电池寿命，并且还支持 UIKit 的多 task，在进程间使用相同的委托模型
+
+	b, 能够暂停和恢复网络操作：使用 NSURLSession API 能够暂停，停止，恢复所有的网络任务，再也完全不需要子类化 NSOperation
+
+	c, 可配置的容器：对于 NSURLSession 里面的 requests 来说，每个NSURLSession 都是可配置的容器。举个例来说，假如你需要设置 HTTP header 选项，你只用做一次，session 里面的每个 request 就会有同样的配置
+
+	d, 提高认证处理：认证是在一个指定的连接基础上完成的。在使用 NSURLConnection 时，如果发出一个访问，会返回一个任意的 request。此时，你就不能确切的知道哪个 request 收到了访问。而在 NSURLSession 中，就能用代理处理认证
+
+	e, 丰富的代理模式：在处理认证的时候，NSURLConnection 有一些基于异步的 block 方法，但是它的代理方法就不能处理认证，不管请求是成功或是失败。在 NSURLSession 中，可以混合使用代理和 block 方法处理认证
+
+	f, 上传和下载通过文件系统：它鼓励将数据（文件内容）从元数据（URL 和 settings）中分离出来
+
 	
